@@ -164,17 +164,6 @@ $date_today = date('Y-m-d');
         box-shadow: 0 8px 20px rgba(40, 167, 69, 0.8);
     }
 
-    .btn-warning {
-        background: #ffc107;
-        color: #34495e;
-        box-shadow: 0 6px 15px rgba(255, 193, 7, 0.6);
-    }
-
-    .btn-warning:hover {
-        background: #e0a800;
-        box-shadow: 0 8px 20px rgba(255, 193, 7, 0.8);
-    }
-
     .empty-state {
         text-align: center;
         padding: 3rem 1rem;
@@ -382,7 +371,6 @@ $date_today = date('Y-m-d');
         <h2 class="section-title">Daftar Tugas</h2>
         <div>
             <a href="add_task.php" class="btn btn-success">➕ Tambah Tugas</a>
-            <a href="export_csv.php" target="_blank" class="btn btn-warning">📊 Export CSV</a>
         </div>
     </div>
 

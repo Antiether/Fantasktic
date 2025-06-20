@@ -20,21 +20,22 @@ try {
     
     // Completed tasks
     $stmt = $db->query("SELECT COUNT(DISTINCT t.id) as total FROM tasks t 
-                       LEFT JOIN subtasks st ON t.id = st.task_id 
-                       WHERE t.id NOT IN (SELECT DISTINCT task_id FROM subtasks WHERE is_done = 0)
-                       AND t.id IN (SELECT DISTINCT task_id FROM subtasks)");
+                        LEFT JOIN subtasks st ON t.id = st.task_id 
+                        WHERE t.id NOT IN (SELECT DISTINCT task_id FROM subtasks WHERE is_done = 0)
+                        AND t.id IN (SELECT DISTINCT task_id FROM subtasks)");
     $stats['completed_tasks'] = $stmt->fetch()['total'];
     
-    // Active users (users with tasks)
+    // Active users (users with at least one task)
     $stmt = $db->query("SELECT COUNT(DISTINCT user_id) as total FROM tasks");
     $stats['active_users'] = $stmt->fetch()['total'];
     
     // Get recent users
-    $stmt = $db->prepare("SELECT id, username, full_name, email, created_at, is_active FROM users WHERE role = 'user' ORDER BY created_at DESC LIMIT 10");
+    $stmt = $db->prepare("SELECT id, username, full_name, email, created_at, is_active FROM users WHERE role = 'user' ORDER BY created_at DESC LIMIT 5");
     $stmt->execute();
     $recent_users = $stmt->fetchAll();
     
 } catch (Exception $e) {
+    // die($e->getMessage()); // Uncomment for debugging
     $error = "Terjadi kesalahan saat memuat data.";
 }
 ?>
@@ -45,268 +46,67 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - Fantasktic</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link rel="stylesheet" href="../assets/style.css">
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+        /* Menggunakan Font dari Google Fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
+        /* --- STYLING UTAMA --- */
         body {
             font-family: 'Poppins', sans-serif;
-            background: #f4f7fa;
-            margin: 0;
-            padding: 0;
+            background-color: #f4f7f9;
             color: #34495e;
-        }
-
-        .admin-header {
-            background: linear-gradient(135deg, #4a90e2 0%, #357ABD 100%);
-            color: white;
-            padding: 3rem 0;
-            margin-bottom: 2rem;
-            border-radius: 0 0 20px 20px;
-            box-shadow: 0 6px 20px rgba(53, 122, 189, 0.5);
-            text-align: center;
-        }
-
-        .admin-header h1 {
-            font-size: 3rem;
-            font-weight: 900;
-            margin-bottom: 0.5rem;
-            text-shadow: 2px 2px 6px rgba(0,0,0,0.4);
-        }
-
-        .admin-header p {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: #cce5ff;
-            text-shadow: 1px 1px 4px rgba(0,0,0,0.3);
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 15px;
-            box-shadow: 0 4px 25px rgba(53, 122, 189, 0.15);
-            text-align: center;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            cursor: default;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 10px 40px rgba(53, 122, 189, 0.3);
-        }
-
-        .stat-icon {
-            font-size: 3rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .stat-number {
-            font-size: 2.25rem;
-            font-weight: 700;
-            color: #2c3e50;
-            margin-bottom: 0.5rem;
-        }
-
-        .stat-label {
-            color: #6c757d;
-            font-weight: 600;
-            font-size: 1rem;
-        }
-
-        .admin-nav {
-            background: white;
-            padding: 1rem 1.5rem;
-            border-radius: 15px;
-            box-shadow: 0 4px 25px rgba(53, 122, 189, 0.15);
-            margin-bottom: 2rem;
-        }
-
-        .admin-nav-links {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .admin-nav-links a {
-            flex: 1 1 150px;
-            text-align: center;
-            padding: 0.75rem 1rem;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 1rem;
-            color: white;
-            text-decoration: none;
-            transition: background 0.3s ease, box-shadow 0.3s ease;
-            box-shadow: 0 6px 15px rgba(53, 122, 189, 0.6);
-            user-select: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-
-        .admin-nav-links a:hover {
-            box-shadow: 0 8px 25px rgba(53, 122, 189, 0.8);
-        }
-
-        .btn-primary {
-            background: #357ABD;
-        }
-
-        .btn-secondary {
-            background: #4a90e2;
-        }
-
-        .btn-warning {
-            background: #f5a623;
-            color: #2c3e50;
-            box-shadow: 0 6px 15px rgba(245, 166, 35, 0.6);
-        }
-
-        .btn-warning:hover {
-            background: #d48806;
-            box-shadow: 0 8px 25px rgba(212, 136, 6, 0.8);
-        }
-
-        .btn-success {
-            background: #7ed321;
-            color: #2c3e50;
-            box-shadow: 0 6px 15px rgba(126, 211, 33, 0.6);
-        }
-
-        .btn-success:hover {
-            background: #6ab91a;
-            box-shadow: 0 8px 25px rgba(106, 185, 26, 0.8);
-        }
-
-        .users-table {
-            background: white;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 4px 25px rgba(53, 122, 189, 0.15);
-        }
-
-        .table-header {
-            background: #f8f9fa;
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid #dee2e6;
-        }
-
-        .table-header h3 {
             margin: 0;
-            font-weight: 700;
-            color: #2c3e50;
         }
 
-        .table-content {
-            overflow-x: auto;
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
         }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            padding: 1rem 1.5rem;
-            text-align: left;
-            border-bottom: 1px solid #dee2e6;
-        }
-
-        th {
-            background: #f8f9fa;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-
-        .status-badge {
-            padding: 0.3rem 0.8rem;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-
-        .status-active {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status-inactive {
-            background: #f8d7da;
-            color: #721c24;
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar">
-        <div class="container">
-            <div class="nav-brand">
-                <h2>⚙️ Admin Panel</h2>
-            </div>
-            <div class="nav-menu" style="padding-right: 2rem;">
-                <div class="nav-user">
-                    <span class="user-greeting" style="margin-right: 1rem;">
-                        Admin: <strong><?= htmlspecialchars(getCurrentUser()['full_name']) ?></strong>
-                    </span>
-                    <div class="nav-actions">
-                        <a href="../index.php" class="nav-link">📋 Tasks</a>
-                        <a href="../logout.php" class="nav-link logout-link">🚪 Logout</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </nav>
-
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
-
+        /* --- HEADER/NAVBAR BARU --- */
         .navbar {
-            font-family: 'Poppins', sans-serif;
-            background: #f8f9fa;
+            background: #ffffff;
             padding: 1rem 0;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             margin-bottom: 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .navbar .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .nav-brand h2 {
+            margin: 0;
+            font-size: 1.5rem;
             font-weight: 700;
-            font-size: 1.75rem;
             color: #2c3e50;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            margin: 0;
+            gap: 0.75rem;
         }
 
-        .nav-brand h2::before {
-            content: "⚙️";
-            font-size: 1.8rem;
+        .nav-brand h2 .fa-shield-halved {
+            color: #667eea;
         }
-
-        .nav-menu {
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-        }
-
+        
         .nav-user {
             display: flex;
             align-items: center;
             gap: 1.5rem;
-            font-size: 1rem;
-            color: #34495e;
         }
 
         .user-greeting {
-            font-weight: 600;
+            font-weight: 500;
+            color: #555;
         }
 
         .nav-actions {
@@ -315,82 +115,263 @@ try {
         }
 
         .nav-link {
-            color: #667eea;
+            color: #555;
             text-decoration: none;
-            font-weight: 600;
+            font-weight: 500;
             transition: color 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .nav-link:hover {
-            color: #4a63d2;
-            text-decoration: underline;
-        }
-
-        .logout-link {
-            color: #dc3545;
+            color: #667eea;
         }
 
         .logout-link:hover {
-            color: #b02a37;
+            color: #e74c3c;
         }
 
-        @media (max-width: 600px) {
-            .nav-menu {
-                flex-direction: column;
-                gap: 0.5rem;
-            }
+        /* --- KARTU STATISTIK --- */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
         }
+
+        .stat-card {
+            background: #ffffff;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.04);
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+        }
+
+        .stat-icon {
+            font-size: 1.8rem;
+            width: 60px;
+            height: 60px;
+            display: grid;
+            place-items: center;
+            border-radius: 50%;
+            color: #fff;
+        }
+        
+        /* Warna Ikon Kartu Statistik */
+        .icon-users { background-color: #3498db; }
+        .icon-tasks { background-color: #f39c12; }
+        .icon-completed { background-color: #2ecc71; }
+        .icon-active { background-color: #e74c3c; }
+
+        .stat-info .stat-number {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #2c3e50;
+            line-height: 1;
+        }
+
+        .stat-info .stat-label {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+
+        /* --- NAVIGASI ADMIN --- */
+        .admin-nav {
+            margin-bottom: 2.5rem;
+        }
+        
+        .admin-nav-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            background: #ffffff;
+            padding: 1rem;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.04);
+        }
+
+        .admin-nav-links a {
+            flex: 1 1 180px;
+            text-decoration: none;
+            padding: 0.8rem 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-nav-primary { background: #e8eaf6; color: #3f51b5; }
+        .btn-nav-primary:hover { background: #3f51b5; color: #fff; }
+
+        .btn-nav-secondary { background: #fff3e0; color: #f57c00; }
+        .btn-nav-secondary:hover { background: #f57c00; color: #fff; }
+
+        .btn-nav-success { background: #e8f5e9; color: #388e3c; }
+        .btn-nav-success:hover { background: #388e3c; color: #fff; }
+        
+        .btn-nav-warning { background: #fffde7; color: #fbc02d; }
+        .btn-nav-warning:hover { background: #fbc02d; color: #fff; }
+
+        /* --- TABEL PENGGUNA --- */
+        .users-table-wrapper {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
+        }
+
+        .table-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .table-header h3 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .table-content {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 1rem 1.5rem;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: middle;
+        }
+        
+        thead th {
+            background-color: #f8f9fa;
+            color: #555;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        tbody tr:hover {
+            background-color: #f9f9fc;
+        }
+
+        .status-badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-active { background: #d4edda; color: #155724; }
+        .status-inactive { background: #f8d7da; color: #721c24; }
+
+        .btn-edit {
+            background-color: #e0e0e0;
+            color: #555;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-edit:hover {
+            background-color: #3498db;
+            color: white;
+        }
+
     </style>
-
-    <div class="admin-header">
+</head>
+<body>
+    
+    <nav class="navbar">
         <div class="container">
-            <h1>📊 Dashboard Admin</h1>
-            <p>Kelola pengguna dan monitor aktivitas sistem</p>
-        </div>
-    </div>
-
-    <div class="container">
-        <!-- Statistics -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon">👥</div>
-                <div class="stat-number"><?= $stats['total_users'] ?></div>
-                <div class="stat-label">Total Pengguna</div>
+            <div class="nav-brand">
+                <h2><i class="fa-solid fa-shield-halved"></i> Admin Panel</h2>
             </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">📋</div>
-                <div class="stat-number"><?= $stats['total_tasks'] ?></div>
-                <div class="stat-label">Total Tugas</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">✅</div>
-                <div class="stat-number"><?= $stats['completed_tasks'] ?></div>
-                <div class="stat-label">Tugas Selesai</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">🎯</div>
-                <div class="stat-number"><?= $stats['active_users'] ?></div>
-                <div class="stat-label">Pengguna Aktif</div>
+            <div class="nav-menu">
+                <div class="nav-user">
+                    <span class="user-greeting">
+                        Admin: <strong><?= htmlspecialchars(getCurrentUser()['full_name']) ?></strong>
+                    </span>
+                    <div class="nav-actions">
+                         <a href="../logout.php" class="nav-link logout-link"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                    </div>
+                </div>
             </div>
         </div>
+    </nav>
+    
+    <main class="container">
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon icon-users"><i class="fa-solid fa-users"></i></div>
+                <div class="stat-info">
+                    <div class="stat-number"><?= $stats['total_users'] ?></div>
+                    <div class="stat-label">Total Pengguna</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon icon-tasks"><i class="fa-solid fa-clipboard-list"></i></div>
+                <div class="stat-info">
+                    <div class="stat-number"><?= $stats['total_tasks'] ?></div>
+                    <div class="stat-label">Total Tugas</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon icon-completed"><i class="fa-solid fa-check-double"></i></div>
+                <div class="stat-info">
+                    <div class="stat-number"><?= $stats['completed_tasks'] ?></div>
+                    <div class="stat-label">Tugas Selesai</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon icon-active"><i class="fa-solid fa-user-clock"></i></div>
+                <div class="stat-info">
+                    <div class="stat-number"><?= $stats['active_users'] ?></div>
+                    <div class="stat-label">Pengguna Aktif</div>
+                </div>
+            </div>
+        </section>
 
-        <!-- Admin Navigation -->
-        <div class="admin-nav">
+        <section class="admin-nav">
             <div class="admin-nav-links">
-                <a href="users.php" class="btn btn-primary">👥 Kelola Pengguna</a>
-                <a href="tasks.php" class="btn btn-secondary">📋 Lihat Semua Tugas</a>
-                <a href="reports.php" class="btn btn-warning">📊 Laporan</a>
-                <a href="settings.php" class="btn btn-success">⚙️ Pengaturan</a>
+                <a href="users.php" class="btn-nav-primary"><i class="fa-solid fa-users-cog"></i> Kelola Pengguna</a>
+                <a href="tasks.php" class="btn-nav-secondary"><i class="fa-solid fa-folder-open"></i> Lihat Semua Tugas</a>
+                <a href="reports.php" class="btn-nav-warning"><i class="fa-solid fa-chart-pie"></i> Laporan</a>
+                <a href="settings.php" class="btn-nav-success"><i class="fa-solid fa-gears"></i> Pengaturan</a>
             </div>
-        </div>
+        </section>
 
-        <!-- Recent Users -->
-        <div class="users-table">
+        <section class="users-table-wrapper">
             <div class="table-header">
-                <h3>👥 Pengguna Terbaru</h3>
+                <h3><i class="fa-solid fa-user-plus"></i> Pengguna Terbaru</h3>
             </div>
             <div class="table-content">
                 <table>
@@ -406,27 +387,34 @@ try {
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($recent_users as $user): ?>
-                        <tr>
-                            <td><?= $user['id'] ?></td>
-                            <td><?= htmlspecialchars($user['username']) ?></td>
-                            <td><?= htmlspecialchars($user['full_name']) ?></td>
-                            <td><?= htmlspecialchars($user['email']) ?></td>
-                            <td>
-                                <span class="status-badge <?= $user['is_active'] ? 'status-active' : 'status-inactive' ?>">
-                                    <?= $user['is_active'] ? 'Aktif' : 'Nonaktif' ?>
-                                </span>
-                            </td>
-                            <td><?= date('d M Y', strtotime($user['created_at'])) ?></td>
-                            <td>
-                                <a href="edit_user.php?id=<?= $user['id'] ?>" class="btn btn-warning" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;">Edit</a>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
+                        <?php if (!empty($recent_users)): ?>
+                            <?php foreach ($recent_users as $user): ?>
+                            <tr>
+                                <td><?= $user['id'] ?></td>
+                                <td><?= htmlspecialchars($user['username']) ?></td>
+                                <td><?= htmlspecialchars($user['full_name']) ?></td>
+                                <td><?= htmlspecialchars($user['email']) ?></td>
+                                <td>
+                                    <span class="status-badge <?= $user['is_active'] ? 'status-active' : 'status-inactive' ?>">
+                                        <?= $user['is_active'] ? 'Aktif' : 'Nonaktif' ?>
+                                    </span>
+                                </td>
+                                <td><?= date('d M Y', strtotime($user['created_at'])) ?></td>
+                                <td>
+                                    <a href="edit_user.php?id=<?= $user['id'] ?>" class="btn-edit">Edit</a>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 2rem;">Belum ada pengguna terdaftar.</td>
+                            </tr>
+                        <?php endif; ?>
                     </tbody>
                 </table>
             </div>
-        </div>
-    </div>
+        </section>
+    </main>
+
 </body>
 </html>
